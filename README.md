@@ -1,2 +1,0 @@
-# juegoLQB
-Juego LQB
