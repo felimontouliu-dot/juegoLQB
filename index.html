@@ -1029,7 +1029,7 @@ function estadoSync(){
     e.style.color = "#FFD8A8"; return;
   }
   if(PENDIENTES.length){
-    e.textContent = PENDIENTES.length + " registro(s) sin enviar." + (ultimoError ? " " + ultimoError : "");
+    e.textContent = PENDIENTES.length + " partida(s) sin enviar. Tocá Probar envío para reintentar." + (ultimoError ? " " + ultimoError : "");
     e.style.color = "#FFB3A7";
   } else {
     e.textContent = "Planilla conectada. Todo sincronizado.";
@@ -1481,7 +1481,7 @@ $("#btnGuardar").onclick = async ()=>{
   CFG.tiempos = nuevos;
 
   const url = $("#f-sheets").value.trim();
-  if(url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)){
+  if(url && !/^https:\/\/script\.google\.com\/macros\/.+\/exec\/?$/.test(url)){
     toast("El enlace debe terminar en /exec"); return;
   }
   CFG.sheetsUrl = url;
@@ -1523,11 +1523,12 @@ $("#btnProbar").onclick = async ()=>{
     e.textContent = "Google pide iniciar sesión. En la implementación, poné \u0022Quién tiene acceso: Cualquier persona\u0022 y volvé a implementar.";
     return;
   }
-  if(antes.error === "cors"){
-    e.style.color = "#FFB3A7";
-    e.textContent = "No se pudo leer la planilla. Revisá que el enlace termine en /exec.";
-    return;
-  }
+  // no poder leer es normal en algunos dominios: seguimos igual
+
+  // guardamos la URL antes de probar: si no, la prueba usa una dirección
+  // y las partidas siguen intentando por otra
+  CFG.sheetsUrl = url;
+  await Store.set("memotest_config", CFG);
 
   const r = await postearPlanilla(url, {registros:[{
     fecha:new Date().toLocaleString("es-UY"), nombre:"PRUEBA DE CONEXIÓN",
@@ -1546,14 +1547,16 @@ $("#btnProbar").onclick = async ()=>{
     const despues = await contarFilas(url);
     if(despues.total > antes.total){
       e.style.color = "#8CE99A";
-      e.textContent = "Verificado: la fila llegó a la planilla (" + despues.total + " en total).";
+      e.textContent = "Verificado y guardado: la fila llegó a la planilla (" + despues.total + " en total).";
+      sincronizar();
     } else {
       e.style.color = "#FFB3A7";
       e.textContent = "Se envió pero la planilla no sumó filas. Copiá de nuevo el código del script y volvé a implementar (Nueva versión).";
     }
   } else {
     e.style.color = "#FFD8A8";
-    e.textContent = "Enviado, pero no se pudo verificar desde el navegador. Abrí la planilla y fijate si aparece la fila PRUEBA DE CONEXIÓN.";
+    e.textContent = "Enviado y guardado. No se pudo verificar desde el navegador: abrí la planilla y fijate si aparece PRUEBA DE CONEXIÓN.";
+    sincronizar();
   }
 };
 
